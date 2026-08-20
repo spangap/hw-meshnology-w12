@@ -1,0 +1,9 @@
+description: "hw-meshnology-w12: Meshnology W12 board HAL for reticulous (Vext rail, sub-GHz front-end supply, GNSS lines, LoRa CS park, battery; OLED/radio/GNSS via tinylcd/iface-lora/gps Kconfig)."
+url: https://github.com/spangap/hw-meshnology-w12
+version: "0.1.0"
+license: "Apache-2.0"
+targets:
+  - esp32s3
+dependencies:
+  idf:
+    version: ">=5.5"
