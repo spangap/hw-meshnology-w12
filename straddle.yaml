@@ -20,9 +20,11 @@ version: 0.0.0
 platforms: [idf]
 # What this board pulls in: the paged mono-OLED UI, because the W12's only
 # screen is a 0.96" SSD1315 (an SSD1306 part) — the colour-TFT UI (spangap-lcd)
-# would have nothing to draw on — and the GNSS straddle for the L76K receiver
-# the kits ship with. A W12 sold without the receiver populated wants
-# `--without spangap/gps`; the UART then simply carries nothing.
+# would have nothing to draw on — and the GNSS straddle for the L76K the board's
+# header takes. That header is a solder-on option and the kits ship it empty, so
+# gps is staged for the boards that have one fitted; a bare board wants
+# `--without spangap/gps` and otherwise pays one autobaud probe at boot before
+# reporting no receiver.
 additional_installs:
   - spangap/tinylcd
   - spangap/gps

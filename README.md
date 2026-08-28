@@ -42,9 +42,9 @@ update story and the browser SPA all come from the buildable and its other
 straddles — not from here.
 
 The board stages [tinylcd](../tinylcd) (its only screen is the mono OLED, so
-the colour-TFT UI would have nothing to draw on) and [gps](../gps) (the kits
-ship with the L76K populated; a bare board wants `--without spangap/gps`). The
-BOOT/PRG button doubles as tinylcd's page button.
+the colour-TFT UI would have nothing to draw on) and [gps](../gps) (the L76K
+header is a solder-on option, so a board without one wants
+`--without spangap/gps`). The BOOT/PRG button doubles as tinylcd's page button.
 
 ## ⚠️ Verify before trusting
 
@@ -82,8 +82,11 @@ actual unit before an RF or partition run:
   the schematic reference in Meshtastic's variant; MeshCore states 5.42 for the
   same divider. Trim `BAT_DIV_NUM/DEN` in `esp-idf/src/w12.cpp` if a multimeter
   disagrees.
-- **GNSS presence.** Meshtastic's unit had the header unpopulated. A build with
-  no receiver fitted simply reports no fix; nothing else changes.
+- **GNSS presence.** The kit ships **without** a receiver: the L76K header is a
+  solder-on option, and the vendor's own listing claims no GNSS. Meshtastic's
+  unit had it unpopulated too. A build with no receiver fitted warns
+  `GPS not detected` once at boot and then reports no fix; nothing else
+  changes.
 
 ## First flash
 
