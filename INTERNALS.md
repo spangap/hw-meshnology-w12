@@ -128,7 +128,7 @@ and `femBandSelect` settles all of them from the carrier at the top of each
 
 The chip's drive range is the part that bites: a value perfectly legal on one
 port is refused outright on the other, so the conversion has to know the band
-before it clamps. That is why `femBandSelect` runs before `femChipDbm` rather
+before it clamps. That is why `femBandSelect` runs before `rfChipDbm` rather
 than beside it, and why `radioStart` calls it too — the ceiling it publishes is
 what the operator's `tx_power` is measured against, and that check happens
 before `begin()`.
@@ -148,9 +148,57 @@ region and shy at the top, where a real PA compresses: MeshCore's measurement on
 this board puts the GC1109's full saturation nearer +3 dBm of drive than 0. Err
 low, always — the alternative overstates every rung below the ceiling and
 overdrives the part to reach the last one. The other end of the range is the
-clamp: asking for less than the chip's floor plus the gain lands on the floor
-and the control stops responding below that (about 21 dBm at the antenna
-sub-GHz, 3 dBm at 2.4 GHz).
+board's floor: the chip's own floor plus the gain, about **21 dBm** at the
+antenna sub-GHz and **3 dBm** at 2.4 GHz.
+
+The amplifier is what puts it there, and it cannot be stepped around. The
+GC1109 has a transmit-bypass path costing about 1 dB, which would reach some
+30 dB lower — but the LR2021 drives the front end from its own mode state
+machine, and `lr2021ApplyDio` maps DIOs across the five modes that machine has:
+standby, rx, tx, rx_hf, tx_hf. There is no sixth row for bypass, so the TX mask
+is the only transmit state that exists and the PA is in circuit for every
+frame.
+
+So this board has a quietest possible transmission, published as
+`lora.<n>.tx_power_min` rather than left to be discovered: a `tx_power` under it
+is clamped up with a warning, the adaptive controller never asks below it, and
+what a frame announces is what the setting actually radiates. A node that
+settled below its floor would otherwise tell every neighbour a power it was not
+using, and each of them would compute its path loss wrong by the difference.
+
+Both floors are **declared, not measured** — grade `none` in `lora.<n>.cal`.
+They are the chip's floor plus a datasheet gain, which is the part of the curve
+a flat gain models best, but nobody has put this board on an analyser at −9 dBm
+of drive.
+
+### Reaching below the floor: the bypass path
+
+The bypass is selectable in principle, and the work to use it is scoped here so
+it does not have to be rediscovered.
+
+`CPS` is the PA / transmit-bypass select, and it is one of DIO9 or DIO10: the
+TX mask is `0x70` (DIO9 + DIO10 + DIO11) and RX alone is `0x40`, so DIO11 is
+`CSD` and the remaining pair carries `CTX` and `CPS`. **Which of the two is
+which is not recorded anywhere in this tree and needs the schematic**; that is
+the first step. Dropping the CPS bit gives a TX mask of `0x60` or `0x50`, and
+with the PA out of circuit the antenna sees the chip's drive less about 1 dB of
+insertion loss — a range of roughly −10 … +21 dBm.
+
+Two shapes of work follow from that, and they are very different sizes:
+
+- **A permanently quiet board** is a one-line change: the bypass mask in
+  `LORA0_LR_RFSW_TX`, a `LORA0_TX_CAL` entry stating `declared` with the
+  bypass's own ~1 dB loss instead of the PA's gain, and `LORA_TX_POWER_MAX`
+  dropped to match. Everything downstream follows the published range.
+- **A board that spans both** is not. The LR2021 applies the mask from its own
+  mode state machine, which has five modes and no room for a sixth, so the two
+  transmit states cannot both be resident. Crossing the threshold means
+  rewriting the DIO RF-switch config over SPI, which puts a mode change on the
+  transmit path — and the conversion stops being one curve, because the board
+  then has two with a discontinuity between them. `LoraRfCal` holds a single
+  curve per port and `femBandSelect` rebuilds it per band; a bypass-aware board
+  would need the same treatment per PA state, with hysteresis so a peer sitting
+  near the crossover does not switch the front end on every frame.
 
 The **RF-switch masks are the datasheet's truth table**, transcribed: shutdown
 is CSD 0; receive is CSD 1, CTX 0; transmit-bypass is CSD 1, CTX 1, CPS 0; and
