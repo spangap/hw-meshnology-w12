@@ -151,54 +151,29 @@ overdrives the part to reach the last one. The other end of the range is the
 board's floor: the chip's own floor plus the gain, about **21 dBm** at the
 antenna sub-GHz and **3 dBm** at 2.4 GHz.
 
-The amplifier is what puts it there, and it cannot be stepped around. The
-GC1109 has a transmit-bypass path costing about 1 dB, which would reach some
-30 dB lower — but the LR2021 drives the front end from its own mode state
-machine, and `lr2021ApplyDio` maps DIOs across the five modes that machine has:
-standby, rx, tx, rx_hf, tx_hf. There is no sixth row for bypass, so the TX mask
-is the only transmit state that exists and the PA is in circuit for every
-frame.
+The amplifier is what puts it there, and this board steps around it:
+`LORA0_LR_RFSW_TX_BYPASS=0x50` is the transmit row with CPS (DIO10) dropped, so
+the signal takes the GC1109's bypass path instead of its PA and reaches about
+**−10 … +20 dBm**. The driver picks the path per frame from the power it was
+asked for — there is no setting — so the board spans −10 … +30 and a peer in
+the same room gets microwatts while one across the valley gets the full PA.
+`declared-bypass` in `LORA0_TX_CAL` is what the bypass state radiates; the
+mechanism is iface-lora's, described in its INTERNALS §4b.
 
-So this board has a quietest possible transmission, published as
-`lora.<n>.tx_power_min` rather than left to be discovered: a `tx_power` under it
-is clamped up with a warning, the adaptive controller never asks below it, and
-what a frame announces is what the setting actually radiates. A node that
-settled below its floor would otherwise tell every neighbour a power it was not
-using, and each of them would compute its path loss wrong by the difference.
+Whichever floor is in force, it is published as `lora.<n>.tx_power_min` rather
+than left to be discovered: a `tx_power` under the board's real range is clamped
+up with a warning, the adaptive controller never asks below it, and what a frame
+announces is what it actually radiated — on either side of the front end. A node
+that settled below its floor would otherwise tell every neighbour a power it was
+not using, and each of them would compute its path loss wrong by the difference.
 
-Both floors are **declared, not measured** — grade `none` in `lora.<n>.cal`.
-They are the chip's floor plus a datasheet gain, which is the part of the curve
-a flat gain models best, but nobody has put this board on an analyser at −9 dBm
-of drive.
+The 2.4 GHz path has no bypass mask, so there the +3 dBm floor stands.
 
-### Reaching below the floor: the bypass path
-
-The bypass is selectable in principle, and the work to use it is scoped here so
-it does not have to be rediscovered.
-
-`CPS` is the PA / transmit-bypass select, and it is one of DIO9 or DIO10: the
-TX mask is `0x70` (DIO9 + DIO10 + DIO11) and RX alone is `0x40`, so DIO11 is
-`CSD` and the remaining pair carries `CTX` and `CPS`. **Which of the two is
-which is not recorded anywhere in this tree and needs the schematic**; that is
-the first step. Dropping the CPS bit gives a TX mask of `0x60` or `0x50`, and
-with the PA out of circuit the antenna sees the chip's drive less about 1 dB of
-insertion loss — a range of roughly −10 … +21 dBm.
-
-Two shapes of work follow from that, and they are very different sizes:
-
-- **A permanently quiet board** is a one-line change: the bypass mask in
-  `LORA0_LR_RFSW_TX`, a `LORA0_TX_CAL` entry stating `declared` with the
-  bypass's own ~1 dB loss instead of the PA's gain, and `LORA_TX_POWER_MAX`
-  dropped to match. Everything downstream follows the published range.
-- **A board that spans both** is not. The LR2021 applies the mask from its own
-  mode state machine, which has five modes and no room for a sixth, so the two
-  transmit states cannot both be resident. Crossing the threshold means
-  rewriting the DIO RF-switch config over SPI, which puts a mode change on the
-  transmit path — and the conversion stops being one curve, because the board
-  then has two with a discontinuity between them. `LoraRfCal` holds a single
-  curve per port and `femBandSelect` rebuilds it per band; a bypass-aware board
-  would need the same treatment per PA state, with hysteresis so a peer sitting
-  near the crossover does not switch the front end on every frame.
+Every figure here is **declared, not measured** — grade `none` in
+`lora.<n>.cal`. The amplified ends are the chip's range plus a datasheet gain
+and the bypass ends are it less a datasheet insertion loss, which is the part of
+the curve a flat model fits best, but nobody has put this board on an analyser
+at either end.
 
 The **RF-switch masks are the datasheet's truth table**, transcribed: shutdown
 is CSD 0; receive is CSD 1, CTX 0; transmit-bypass is CSD 1, CTX 1, CPS 0; and

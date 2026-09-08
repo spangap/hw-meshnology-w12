@@ -114,6 +114,17 @@ kconfig:
       - CONFIG_LORA0_LR_RFSW_TX=0x70
       - CONFIG_LORA0_LR_RFSW_RX_HF=0x02
       - CONFIG_LORA0_LR_RFSW_TX_HF=0x01
+      # The transmit row again with CPS (DIO10) dropped: CSD and CTX still say
+      # "this part, transmitting", but the signal takes the GC1109's bypass
+      # path rather than its PA. That is the only way this board transmits
+      # quietly — with the PA in circuit its faintest possible frame is the
+      # PA's own output, about +21 dBm. Selected by s.lora.0.fem_tx_pa=0.
+      - CONFIG_LORA0_LR_RFSW_TX_BYPASS=0x50
+      # What the bypass state radiates, which is a different transmitter and so
+      # a different curve: the chip's own drive less the path's ~1 dB insertion
+      # loss, flat across the range. Datasheet, not measured — the GC1109 states
+      # "< 1.0 dB" and this takes it at 1.
+      - 'CONFIG_LORA0_TX_CAL="declared-bypass datasheet -9:-10,21:20"'
       # The two front ends' supply gates, active high. iface-lora raises the one
       # the configured carrier needs and drops the other, so tuning across
       # 1500 MHz moves the supply with the frequency and the amplifier for the
