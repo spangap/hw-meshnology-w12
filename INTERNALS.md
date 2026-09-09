@@ -43,7 +43,7 @@ Relative to a build with no board straddle:
 
 | Added | Where |
 |---|---|
-| `W12Board` (Service) — Vext, GNSS enable/reset, LoRa CS park; `sys.board` | `esp-idf/src/w12.cpp` |
+| `W12Board` (Service) — Vext, GNSS enable/reset, LoRa chip-select park; `sys.board` | `esp-idf/src/w12.cpp` |
 | `W12Battery` (Service) — ADC bring-up, two-shot 60 s sampler, `battery.millivolt` / `battery.percent` | `esp-idf/src/w12.cpp` |
 | `detect_hw()` — this board's self-assertion | `esp-idf/src/detect.cpp` |
 | Board pin constants | `esp-idf/include/w12.h` |
